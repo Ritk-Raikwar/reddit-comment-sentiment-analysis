@@ -1,12 +1,17 @@
 import numpy as np
 import pandas as pd
 import os
-import re
-import nltk
-import string
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+import sys
 import logging
+
+# --- Add Project Root to Path ---
+# This must happen BEFORE importing from src.utils
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Now we can import safely
+from src.utils.common_text_preprocess import preprocess_text, load_params
 
 # --- Logging Configuration ---
 # Create logs directory if it doesn't exist
@@ -28,86 +33,44 @@ file_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-# --- NLTK Setup ---
-def download_nltk_resources():
-    """Download necessary NLTK data safely."""
-    resources = ['wordnet', 'stopwords', 'omw-1.4']
-    for resource in resources:
-        try:
-            nltk.data.find(f'corpora/{resource}')
-        except LookupError:
-            nltk.download(resource, quiet=True)
 
-download_nltk_resources()
-
-# --- Preprocessing Functions ---
-
-def preprocess_text(text):
+def normalize_data(df: pd.DataFrame, text_col: str, target_col: str) -> pd.DataFrame:
     """
-    Applies NLP preprocessing: Lowercase -> Strip -> Remove Punctuation -> Remove Stopwords -> Lemmatize
-    """
-    try:
-        if not isinstance(text, str):
-            return ""
-
-        # 1. Convert to lowercase
-        text = text.lower()
-
-        # 2. Remove newlines and extra spaces
-        text = re.sub(r'\n', ' ', text)
-        text = text.strip()
-
-        # 3. Remove Punctuation
-        # We remove ALL punctuation here to ensure tokens are clean for Lemmatization.
-        # If you strictly want to keep '!' for sentiment, you need a Tokenizer, not .split()
-        text = text.translate(str.maketrans('', '', string.punctuation))
-
-        # 4. Remove Stopwords
-        # Custom list: we keep negation words because they are vital for Sentiment Analysis
-        stop_words = set(stopwords.words('english')) - {'not', 'but', 'however', 'no', 'yet'}
-        
-        words = text.split()
-        filtered_words = [word for word in words if word not in stop_words]
-
-        # 5. Lemmatization
-        lemmatizer = WordNetLemmatizer()
-        lemmatized_words = [lemmatizer.lemmatize(word) for word in filtered_words]
-
-        return ' '.join(lemmatized_words)
-
-    except Exception as e:
-        logger.error(f"Error in text preprocessing: {e}")
-        return text
-
-def normalize_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Performs the basic cleaning (previously in ingestion) and applies text preprocessing.
+    Performs basic cleaning and text preprocessing.
+    Uses .copy() to prevent SettingWithCopyWarning.
     """
     try:
         initial_shape = df.shape
         
-        # --- 1. Basic Cleaning (Restored from Data Ingestion) ---
+        # --- 1. Basic Cleaning ---
         # Drop rows with missing values
         df.dropna(inplace=True)
         
         # Drop duplicates
         df.drop_duplicates(inplace=True)
         
-        # Ensure the text column is string
-        # Assuming the column name is 'clean_comment' based on your input
-        if 'clean_comment' in df.columns:
-            # Filter empty strings (rows that are just whitespace)
-            df = df[df['clean_comment'].astype(str).str.strip() != '']
-        else:
-            raise KeyError("Column 'clean_comment' not found in dataset")
+        # Verify columns exist
+        if text_col not in df.columns:
+            raise KeyError(f"Text column '{text_col}' not found. Check params.yaml.")
+        if target_col not in df.columns:
+            raise KeyError(f"Target column '{target_col}' not found. Check params.yaml.")
+
+        # --- Fix for SettingWithCopyWarning ---
+        # Filter empty strings and create a deep COPY of the dataframe
+        # This tells Pandas: "This is a new object, not a slice of the old one."
+        df = df[df[text_col].astype(str).str.strip() != ''].copy()
 
         logger.debug(f"Basic cleaning dropped {initial_shape[0] - df.shape[0]} rows (NaNs/Duplicates/Empty)")
 
         # --- 2. Text Normalization ---
-        df['clean_comment'] = df['clean_comment'].apply(preprocess_text)
+        # Apply the shared preprocessing function
+        df[text_col] = df[text_col].apply(preprocess_text)
         
         # Filter again just in case preprocessing resulted in empty strings
-        df = df[df['clean_comment'] != '']
+        df = df[df[text_col] != ''].copy()
+        
+        # Keep only the relevant columns to save space
+        df = df[[text_col, target_col]]
         
         logger.debug('Text normalization completed successfully')
         return df
@@ -134,12 +97,18 @@ def main():
     try:
         # Define paths relative to this script
         curr_dir = os.path.dirname(os.path.abspath(__file__))
+        params_path = os.path.join(curr_dir, '..', '..', 'params.yaml')
         raw_data_path = os.path.join(curr_dir, '..', '..', 'data', 'raw')
         data_root_path = os.path.join(curr_dir, '..', '..', 'data')
 
         logger.info("Starting data preprocessing...")
 
-        # Load Raw Data
+        # 1. Load Params
+        params = load_params(params_path)
+        text_col = params['data_preprocessing']['text_column']
+        target_col = params['data_preprocessing']['target_column']
+
+        # 2. Load Raw Data
         train_path = os.path.join(raw_data_path, 'train.csv')
         test_path = os.path.join(raw_data_path, 'test.csv')
 
@@ -151,11 +120,12 @@ def main():
         
         logger.debug(f"Loaded Raw Data: Train {train_data.shape}, Test {test_data.shape}")
 
-        # Normalize (Clean + Preprocess)
-        train_processed = normalize_data(train_data)
-        test_processed = normalize_data(test_data)
+        # 3. Normalize (Clean + Preprocess)
+        # We pass the column names from params.yaml
+        train_processed = normalize_data(train_data, text_col, target_col)
+        test_processed = normalize_data(test_data, text_col, target_col)
 
-        # Save to 'data/interim'
+        # 4. Save to 'data/interim'
         save_data(train_processed, test_processed, data_path=data_root_path)
 
     except Exception as e:

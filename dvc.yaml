@@ -1,0 +1,62 @@
+stages:
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+      - src/data/data_ingestion.py
+    params:
+      - data_ingestion.data_url
+      - data_ingestion.test_size
+      - data_ingestion.random_state
+    outs:
+      - data/raw/train.csv
+      - data/raw/test.csv
+
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+      - src/data/data_preprocessing.py
+      - src/utils/common_text_preprocess.py
+      - data/raw/train.csv
+      - data/raw/test.csv
+    params:
+      - data_preprocessing.text_column
+    outs:
+      - data/interim/train_processed.csv
+      - data/interim/test_processed.csv
+
+  feature_engineering:
+    cmd: python src/features/feature_engineering.py
+    deps:
+      - src/features/feature_engineering.py
+      - data/interim/train_processed.csv
+      - data/interim/test_processed.csv
+    params:
+      - feature_engineering.max_features
+      - feature_engineering.ngram_range
+    outs:
+      - data/processed/train_tfidf.csv
+      - data/processed/test_tfidf.csv
+      - models/tfidf_vectorizer.pkl
+
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+      - src/model/model_building.py
+      - data/processed/train_tfidf.csv
+    params:
+      - model_building.learning_rate
+      - model_building.n_estimators
+      - model_building.class_weight
+      - model_building.objective
+    outs:
+      - models/lightgbm_model.pkl
+  
+  model_evaluation:
+      cmd: python src/model/model_evaluation.py
+      deps:
+        - src/model/model_evaluation.py
+        - models/lightgbm_model.pkl
+        - data/processed/test_tfidf.csv
+      metrics:
+        - metrics.json:
+            cache: false

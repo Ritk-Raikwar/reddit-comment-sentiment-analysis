@@ -1,0 +1,31 @@
+data_ingestion:
+  data_url: "https://raw.githubusercontent.com/Himanshu-1703/reddit-sentiment-analysis/refs/heads/main/data/reddit.csv"
+  test_size: 0.2
+  random_state: 42
+  raw_data_path: "data/raw"
+
+data_preprocessing:
+  train_path: "data/raw/train.csv"
+  test_path: "data/raw/test.csv"
+  # Interim is where the text is cleaned but not yet vectorized
+  processed_train_path: "data/interim/train_processed.csv"
+  processed_test_path: "data/interim/test_processed.csv"
+  text_column: "clean_comment"
+  target_column: "category"
+
+feature_engineering:
+  max_features: 10000              # Limits the vocabulary size
+  ngram_range: [1, 2]             # Uses unigrams and bigrams
+  train_path: "data/interim/train_processed.csv"
+  test_path: "data/interim/test_processed.csv"
+  output_path: "data/processed"
+  vectorizer_path: "models/tfidf_vectorizer.pkl" # CRITICAL: Saving the vectorizer
+
+model_building:
+  learning_rate: 0.21867709163273838
+  n_estimators: 117
+  num_leaves: 26
+  class_weight: "balanced"        # Handling the imbalanced classes
+  random_state: 
+  objective: "multiclass"
+  model_path: "models/lightgbm_model.pkl"

@@ -1,0 +1,131 @@
+schema: '2.0'
+stages:
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+    - path: src/data/data_ingestion.py
+      hash: md5
+      md5: 545d91f1376651083554d9e414a2aae3
+      size: 3752
+    params:
+      params.yaml:
+        data_ingestion.data_url: 
+          https://raw.githubusercontent.com/Himanshu-1703/reddit-sentiment-analysis/refs/heads/main/data/reddit.csv
+        data_ingestion.random_state: 42
+        data_ingestion.test_size: 0.2
+    outs:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 3879d2a3dd32573d70b074dd82554dee
+      size: 1380051
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 3d716bf2650593094047a6d108da0f54
+      size: 5546154
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 3879d2a3dd32573d70b074dd82554dee
+      size: 1380051
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 3d716bf2650593094047a6d108da0f54
+      size: 5546154
+    - path: src/data/data_preprocessing.py
+      hash: md5
+      md5: 459f5c526f12cbb4b7caa7ffabbd42ae
+      size: 5185
+    - path: src/utils/common_text_preprocess.py
+      hash: md5
+      md5: d24f1a559c420e9c74d692662c70e6a7
+      size: 2210
+    params:
+      params.yaml:
+        data_preprocessing.text_column: clean_comment
+    outs:
+    - path: data/interim/test_processed.csv
+      hash: md5
+      md5: 12db41ac3325b16e8d677c32527bfab0
+      size: 1022666
+    - path: data/interim/train_processed.csv
+      hash: md5
+      md5: 02dbe0f7cceedcb5522da279c78a99ce
+      size: 4130648
+  feature_engineering:
+    cmd: python src/features/feature_engineering.py
+    deps:
+    - path: data/interim/test_processed.csv
+      hash: md5
+      md5: 12db41ac3325b16e8d677c32527bfab0
+      size: 1022666
+    - path: data/interim/train_processed.csv
+      hash: md5
+      md5: 02dbe0f7cceedcb5522da279c78a99ce
+      size: 4130648
+    - path: src/features/feature_engineering.py
+      hash: md5
+      md5: 36ad925f658322756189efdefad87240
+      size: 4034
+    params:
+      params.yaml:
+        feature_engineering.max_features: 10000
+        feature_engineering.ngram_range:
+        - 1
+        - 2
+    outs:
+    - path: data/processed/test_tfidf.csv
+      hash: md5
+      md5: 8ebce37a59f1f61ab00e2567257949bc
+      size: 296917365
+    - path: data/processed/train_tfidf.csv
+      hash: md5
+      md5: beb0a461b407bc63d256fdde74a6ecd4
+      size: 1183213633
+    - path: models/tfidf_vectorizer.pkl
+      hash: md5
+      md5: 7c2014ae2449bce1c2347f81a2afad32
+      size: 379613
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+    - path: data/processed/train_tfidf.csv
+      hash: md5
+      md5: beb0a461b407bc63d256fdde74a6ecd4
+      size: 1183213633
+    - path: src/model/model_building.py
+      hash: md5
+      md5: 0699b6e90d222775f92d814353607cc8
+      size: 3773
+    params:
+      params.yaml:
+        model_building.class_weight: balanced
+        model_building.learning_rate: 0.21867709163273838
+        model_building.n_estimators: 117
+        model_building.objective: multiclass
+    outs:
+    - path: models/lightgbm_model.pkl
+      hash: md5
+      md5: 51c87e2b6c9ea926bd84dee2424e209c
+      size: 1242044
+  model_evaluation:
+    cmd: python src/model/model_evaluation.py
+    deps:
+    - path: data/processed/test_tfidf.csv
+      hash: md5
+      md5: 8ebce37a59f1f61ab00e2567257949bc
+      size: 296917365
+    - path: models/lightgbm_model.pkl
+      hash: md5
+      md5: 51c87e2b6c9ea926bd84dee2424e209c
+      size: 1242044
+    - path: src/model/model_evaluation.py
+      hash: md5
+      md5: 7e38c9396b76811aecd3b8568a4d90f8
+      size: 3145
+    outs:
+    - path: metrics.json
+      hash: md5
+      md5: 53da0068799eff4607f9ec012466c5f2
+      size: 150
