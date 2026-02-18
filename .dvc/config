@@ -1,4 +1,5 @@
 [core]
-    remote = localstorage
-['remote "localstorage"']
-    url = C:\Users\ritik\AppData\Local\Temp
+    remote = origin
+['remote "origin"']
+    url = s3://dvc
+    endpointurl = https://dagshub.com/Ritk-Raikwar/reddit-comment-sentiment-analysis.s3
