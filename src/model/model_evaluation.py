@@ -5,6 +5,7 @@ import logging
 import sys
 import joblib
 import json
+import traceback
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ import seaborn as sns
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from mlflow.models import infer_signature
 from urllib.parse import urlparse
-from dotenv import load_dotenv  # <--- CRITICAL: Required to read .env file
+from dotenv import load_dotenv 
 
 # --- Add Project Root to Path ---
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -101,6 +102,19 @@ def main():
         # 5. Calculate Metrics
         accuracy, precision, recall, f1 = eval_metrics(y_test, predicted_qualities)
         
+        # --- SAFEGUARD: Save metrics.json BEFORE MLflow logging ---
+        # This ensures DVC pipeline succeeds even if DagsHub/Internet fails
+        metrics_file = "metrics.json"
+        scores = {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1
+        }
+        with open(metrics_file, "w") as f:
+            json.dump(scores, f, indent=4)
+        logger.info(f"Local metrics saved to {metrics_file}")
+
         # --- MLFLOW LOGGING START ---
         logger.info("Starting MLflow run...")
         mlflow.set_experiment("Reddit Sentiment Analysis")
@@ -111,12 +125,7 @@ def main():
             mlflow.log_param("features_max_features", params['feature_engineering']['max_features'])
             
             # B. Log Metrics
-            mlflow.log_metrics({
-                "accuracy": accuracy,
-                "precision": precision,
-                "recall": recall,
-                "f1_score": f1
-            })
+            mlflow.log_metrics(scores)
             
             # C. Log Confusion Matrix Image
             cm_path = "confusion_matrix.png"
@@ -124,46 +133,28 @@ def main():
             mlflow.log_artifact(cm_path)
             if os.path.exists(cm_path): os.remove(cm_path) # Clean up local image
 
-            # D. Log Model with Signature
-            # Infer signature (input schema)
+            # D. Log Model with Signature (ALWAYS, no if/else check)
             signature = infer_signature(X_test, predicted_qualities)
             
-            tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
-
-            # Log model differently depending on if we are remote or local
-            if tracking_url_type_store != "file":
-                mlflow.sklearn.log_model(
-                    clf, 
-                    "model", 
-                    registered_model_name="LightGBM_Reddit",
-                    signature=signature
-                )
-            else:
-                mlflow.sklearn.log_model(clf, "model", signature=signature)
+            mlflow.sklearn.log_model(
+                clf, 
+                "model", 
+                registered_model_name="LightGBM_Reddit",
+                signature=signature
+            )
 
             # E. Log Vectorizer as Artifact
-            # This is critical to ensure we can preprocess new text later
             mlflow.log_artifact(vectorizer_path, artifact_path="vectorizer")
             
         logger.info("MLflow logging completed.")
         # --- MLFLOW LOGGING END ---
 
-        # 6. Save Metrics to JSON (Keep this for DVC!)
-        metrics_file = "metrics.json"
-        scores = {
-            "accuracy": accuracy,
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1
-        }
-        with open(metrics_file, "w") as f:
-            json.dump(scores, f, indent=4)
-        
-        logger.info(f"Local metrics saved to {metrics_file}")
-
     except Exception as e:
         logger.error(f"Failed to complete model evaluation: {e}")
-        print(f"Error: {e}")
+        print("\n\n========== ERROR DETAILS ==========")
+        traceback.print_exc()
+        print("===================================\n")
+        raise
 
 if __name__ == '__main__':
     main()
