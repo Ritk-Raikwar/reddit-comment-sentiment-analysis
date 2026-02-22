@@ -42,7 +42,9 @@ jobs:
           # Use DagsHub credentials for DVC S3 authentication
           AWS_ACCESS_KEY_ID: ${{ secrets.DAGSHUB_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.DAGSHUB_SECRET_ACCESS_KEY }}
-        run: dvc repro
+        run: |
+          dvc pull
+          dvc repro
 
       - name: Push DVC-tracked data to remote (DagsHub S3)
         env:
