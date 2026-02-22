@@ -1,7 +1,7 @@
 import mlflow
 import pytest
 import pandas as pd
-import pickle
+import joblib # <-- Change from pickle to joblib
 from mlflow.tracking import MlflowClient
 
 @pytest.mark.parametrize("model_name, vectorizer_path", [
@@ -17,8 +17,8 @@ def test_model_with_vectorizer(model_name, vectorizer_path):
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
 
-        with open(vectorizer_path, 'rb') as file:
-            vectorizer = pickle.load(file)
+        # <-- USE JOBLIB HERE -->
+        vectorizer = joblib.load(vectorizer_path)
 
         input_text = "hi how are you"
         input_data = vectorizer.transform([input_text])

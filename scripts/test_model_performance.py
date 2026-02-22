@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-import pickle
+import joblib # <-- Change from pickle to joblib
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -17,8 +17,8 @@ def test_model_performance(model_name, holdout_data_path, vectorizer_path):
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
 
-        with open(vectorizer_path, 'rb') as file:
-            vectorizer = pickle.load(file)
+        # <-- USE JOBLIB HERE -->
+        vectorizer = joblib.load(vectorizer_path)
 
         holdout_data = pd.read_csv(holdout_data_path)
         X_holdout_raw = holdout_data.iloc[:, :-1].squeeze() 
