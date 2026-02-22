@@ -1,29 +1,18 @@
-import os
 import mlflow
+from mlflow.tracking import MlflowClient
 
 def promote_model():
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
+    model_name = "LightGBM_Reddit"
 
-    model_name = "yt_chrome_plugin_model"
-    # Get the latest version in staging
-    latest_version_staging = client.get_latest_versions(model_name, stages=["Staging"])[0].version
+    # Find the latest version we just tested
+    versions = client.search_model_versions(f"name='{model_name}'")
+    latest_version = str(max([int(v.version) for v in versions]))
 
-    # Archive the current production model
-    prod_versions = client.get_latest_versions(model_name, stages=["Production"])
-    for version in prod_versions:
-        client.transition_model_version_stage(
-            name=model_name,
-            version=version.version,
-            stage="Archived"
-        )
-
-    # Promote the new model to production
-    client.transition_model_version_stage(
-        name=model_name,
-        version=latest_version_staging,
-        stage="Production"
-    )
-    print(f"Model version {latest_version_staging} promoted to Production")
+    # Set the 'champion' alias to this version (Modern MLflow Production standard)
+    client.set_registered_model_alias(model_name, "champion", latest_version)
+    print(f"Model version {latest_version} successfully promoted to Champion (Production)!")
 
 if __name__ == "__main__":
     promote_model()
+    

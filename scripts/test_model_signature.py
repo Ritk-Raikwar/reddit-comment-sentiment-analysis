@@ -4,23 +4,19 @@ import pandas as pd
 import pickle
 from mlflow.tracking import MlflowClient
 
-@pytest.mark.parametrize("model_name, stage, vectorizer_path", [
-    # Updated path to look inside the models/ directory
-    ("yt_chrome_plugin_model", "staging", "models/tfidf_vectorizer.pkl"), 
+@pytest.mark.parametrize("model_name, vectorizer_path", [
+    ("LightGBM_Reddit", "models/tfidf_vectorizer.pkl"), 
 ])
-def test_model_with_vectorizer(model_name, stage, vectorizer_path):
+def test_model_with_vectorizer(model_name, vectorizer_path):
     client = MlflowClient()
-
-    latest_version_info = client.get_latest_versions(model_name, stages=[stage])
-    latest_version = latest_version_info[0].version if latest_version_info else None
-
-    assert latest_version is not None, f"No model found in the '{stage}' stage for '{model_name}'"
-
+    
     try:
+        versions = client.search_model_versions(f"name='{model_name}'")
+        latest_version = str(max([int(v.version) for v in versions]))
+
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
 
-        # Load the vectorizer from the DVC-generated models folder
         with open(vectorizer_path, 'rb') as file:
             vectorizer = pickle.load(file)
 

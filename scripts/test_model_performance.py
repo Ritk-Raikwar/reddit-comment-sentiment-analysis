@@ -3,17 +3,16 @@ import pandas as pd
 import pickle
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import mlflow
+from mlflow.tracking import MlflowClient
 
-@pytest.mark.parametrize("model_name, stage, holdout_data_path, vectorizer_path", [
-    ("yt_chrome_plugin_model", "staging", "data/interim/test_processed.csv", "models/tfidf_vectorizer.pkl"),
+@pytest.mark.parametrize("model_name, holdout_data_path, vectorizer_path", [
+    ("LightGBM_Reddit", "data/interim/test_processed.csv", "models/tfidf_vectorizer.pkl"),
 ])
-def test_model_performance(model_name, stage, holdout_data_path, vectorizer_path):
+def test_model_performance(model_name, holdout_data_path, vectorizer_path):
     try:
-        client = mlflow.tracking.MlflowClient()
-        latest_version_info = client.get_latest_versions(model_name, stages=[stage])
-        latest_version = latest_version_info[0].version if latest_version_info else None
-
-        assert latest_version is not None, f"No model found in the '{stage}' stage for '{model_name}'"
+        client = MlflowClient()
+        versions = client.search_model_versions(f"name='{model_name}'")
+        latest_version = str(max([int(v.version) for v in versions]))
 
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
