@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-import joblib # <-- Change from pickle to joblib
+import joblib
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -17,7 +17,6 @@ def test_model_performance(model_name, holdout_data_path, vectorizer_path):
         model_uri = f"models:/{model_name}/{latest_version}"
         model = mlflow.pyfunc.load_model(model_uri)
 
-        # <-- USE JOBLIB HERE -->
         vectorizer = joblib.load(vectorizer_path)
 
         holdout_data = pd.read_csv(holdout_data_path)
@@ -27,7 +26,10 @@ def test_model_performance(model_name, holdout_data_path, vectorizer_path):
         X_holdout_raw = X_holdout_raw.fillna("")
 
         X_holdout_tfidf = vectorizer.transform(X_holdout_raw)
-        X_holdout_tfidf_df = pd.DataFrame(X_holdout_tfidf.toarray(), columns=vectorizer.get_feature_names_out())
+        
+        # THE FIX: Create DataFrame and force column names to be '0', '1', '2', etc.
+        X_holdout_tfidf_df = pd.DataFrame(X_holdout_tfidf.toarray())
+        X_holdout_tfidf_df.columns = [str(i) for i in range(X_holdout_tfidf_df.shape[1])]
 
         y_pred_new = model.predict(X_holdout_tfidf_df)
 
