@@ -3,7 +3,10 @@ name: CICD Pipeline
 on:
   push:
     branches: [ "master" ]
-
+# --- ADD THIS BLOCK ---
+permissions:
+  contents: write
+# ----------------------
 jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
