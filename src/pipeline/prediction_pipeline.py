@@ -51,8 +51,11 @@ class PredictionPipeline:
         # 2. Vectorize
         vectors = self.vectorizer.transform(preprocessed)
         
+        # 2.5 THE FIX: Give LightGBM its REAL word names back!
+        input_df = pd.DataFrame(vectors.toarray(), columns=self.vectorizer.get_feature_names_out())
+        
         # 3. Predict
-        predictions = self.model.predict(vectors)
+        predictions = self.model.predict(input_df)
         
         # 4. Convert to strings (for JSON serialization)
         return [str(p) for p in predictions]

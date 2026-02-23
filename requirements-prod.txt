@@ -1,0 +1,12 @@
+Flask
+flask-cors
+pandas
+numpy
+scikit-learn==1.8.0
+lightgbm
+joblib
+nltk
+matplotlib
+wordcloud
+gunicorn
+PyYAML
