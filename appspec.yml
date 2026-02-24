@@ -1,0 +1,14 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/yt-chrome-plugin
+hooks:
+  ApplicationStop:
+    - location: scripts/deploy/stop_server.sh
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: scripts/deploy/start_server.sh
+      timeout: 300
+      runas: root

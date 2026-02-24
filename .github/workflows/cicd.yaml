@@ -99,3 +99,30 @@ jobs:
           docker build -t yt-chrome-plugin .
           docker tag yt-chrome-plugin:latest $IMAGE_URI
           docker push $IMAGE_URI
+
+      - name: Zip & Upload to AWS S3 for CodeDeploy
+        if: success()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-south-1
+        run: |
+          # This zips the appspec.yml and the entire scripts folder
+          zip -r deployment.zip appspec.yml scripts/deploy
+          aws s3 cp deployment.zip s3://ritikcodedeploybucket/deployment.zip
+
+      # --- TEMPORARILY DISABLED WHILE AWS VERIFIES ACCOUNT ---
+      # - name: Trigger AWS CodeDeploy
+      #   if: success()
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     AWS_DEFAULT_REGION: ap-south-1
+      #   run: |
+      #     aws deploy create-deployment \
+      #       --application-name YTChromePlugin \
+      #       --deployment-config-name CodeDeployDefault.AllAtOnce \
+      #       --deployment-group-name YTChromePluginDeploymentGroup \
+      #       --s3-location bucket=ritikcodedeploybucket,key=deployment.zip,bundleType=zip \
+      #       --file-exists-behavior OVERWRITE \
+      #       --region ap-south-1
