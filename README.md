@@ -1,4 +1,4 @@
-reddit-comment-sentiment-analysis
+reddit-comment-sentiment-analysis (youtube-chrome-plugin-backend(API)-hosted-on-AWS-(LIVE))
 ==============================
 
 MLops practices performed with model experimentation and model tracking on reddit comment sentiment datasest of 37000 comment, goal to predict neutral,negative,or positive sentimentusing only CORE MACHINE LEARNING
