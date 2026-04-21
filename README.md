@@ -53,5 +53,34 @@ Project Organization
 
 
 --------
+dvc pipeline
+                  +----------------+
+                  | data_ingestion |
+                  +----------------+
+                            *
+                            *
+                            *
+                +--------------------+
+                | data_preprocessing |
+                +--------------------+
+                            *
+                            *
+                            *
+                +---------------------+
+                | feature_engineering |
+                +---------------------+
+                 ***                ***
+              ***                      ***
+            **                            ***
++----------------+                           **
+| model_building |                        ***
++----------------+                     ***
+                 ***                ***
+                    ***          ***
+                       **      **
+                  +------------------+
+                  | model_evaluation |
+                  +------------------+
+
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>

@@ -1,6 +1,8 @@
 import matplotlib
 matplotlib.use('Agg') # Non-interactive backend
 
+import traceback # <-- Add this at the very top of app.py
+
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import io
@@ -11,6 +13,10 @@ from wordcloud import WordCloud
 import sys
 import os
 from src.pipeline.prediction_pipeline import PredictionPipeline # pylance error de ra tha ki from prediction_pipeline se seedha import nhi kar sakte root mei src h woh root mei pipeline find karra toh .vscode folder mei setting.json mei ./src
+
+# Extras
+from transformers import pipeline
+import torch
 
 app = Flask(__name__)
 CORS(app) 
@@ -201,6 +207,50 @@ def generate_trend_graph():
         return send_file(img_io, mimetype='image/png')
 
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+# ... (keep other routes the same) ...
+
+@app.route('/detect_spam', methods=['POST'])
+def detect_spam():
+    data = request.json
+    comments_data = data.get('comments')
+    
+    if not comments_data:
+        return jsonify({"error": "No comments provided"}), 400
+
+    try:
+        raw_texts = [item['text'] if isinstance(item, dict) else item for item in comments_data]
+        spam_flags = pipeline.detect_spam(raw_texts)
+        
+        response = [
+            {"comment": txt, "is_spam": flag} 
+            for txt, flag in zip(raw_texts, spam_flags)
+        ]
+        return jsonify(response)
+    except Exception as e:
+        print("\n❌ CRITICAL ERROR IN /detect_spam:")
+        traceback.print_exc() # This will print the exact line and reason for the crash!
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    data = request.json
+    comments = data.get('comments')
+    
+    if not comments:
+        return jsonify({"error": "No comments provided"}), 400
+
+    try:
+        # Pass only top 50 comments
+        top_comments = comments[:50] 
+        summary_text = pipeline.generate_summary(top_comments)
+        return jsonify({"summary": summary_text})
+    except Exception as e:
+        print("\n❌ CRITICAL ERROR IN /summarize:")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

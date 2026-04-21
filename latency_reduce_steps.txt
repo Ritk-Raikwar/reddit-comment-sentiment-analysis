@@ -1,0 +1,7 @@
+sudo fallocate -l 2G /swapfile
+# Allocate 2GB file sudo chmod 600 /swapfile
+# Secure permissions sudo mkswap /swapfile
+# Format as swap sudo swapon /swapfile
+# Enable immediately
+# Persist across reboots:
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab

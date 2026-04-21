@@ -4,6 +4,10 @@ import joblib
 import pandas as pd
 import numpy as np
 
+# Extras
+from transformers import pipeline
+import torch
+
 # --- 1. Dynamic Path Setup to find 'src' ---
 # This allows us to import from src.utils regardless of where this script is run
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -33,6 +37,32 @@ class PredictionPipeline:
             self.vectorizer = joblib.load(self.vectorizer_path)
         except FileNotFoundError:
             raise FileNotFoundError("Model or Vectorizer not found! Did you run 'dvc repro'?")
+        
+
+        # EXTRAS
+        # --- NEW LOCAL AI FEATURES ---
+        print("Loading local AI models to RTX 3050...")
+        
+        # Check if CUDA (RTX 3050) is available
+        self.device = 0 if torch.cuda.is_available() else -1
+        
+        # 1. Spam/Toxic Detection (Tiny Model)
+        self.spam_analyzer = pipeline(
+            "text-classification", 
+            model="martin-ha/toxic-comment-model", 
+            device=self.device
+        )
+        
+        # 2. Summarization (Distil-BART in float16 for 8GB RAM safety)
+        self.summarizer = pipeline(
+            "summarization", 
+            model="sshleifer/distilbart-cnn-12-6", 
+            device=self.device,
+            torch_dtype=torch.float16
+        )
+        print("All models loaded successfully!")
+
+        ## EXTRAS end here
 
     def predict(self, comments):
         """
@@ -65,6 +95,61 @@ class PredictionPipeline:
         # Reuses the same shared logic
         preprocessed = [preprocess_text(c) for c in comments]
         return ' '.join(preprocessed)
+
+    # ExTRAS 
+    def detect_spam(self, comments):
+            """Returns True if the comment is toxic/spam, False otherwise."""
+            if not comments: return []
+            
+            results_flags = []
+            print(f"Running spam detection on {len(comments)} comments...")
+            
+            # Process one-by-one to keep VRAM strictly low and prevent OOM
+            for text in comments:
+                try:
+                    # Skip empty strings
+                    if not text or not str(text).strip():
+                        results_flags.append(False)
+                        continue
+                    
+                    # Truncate raw string to avoid token sequence errors
+                    short_text = str(text)[:1500] 
+                    
+                    # Predict
+                    res = self.spam_analyzer(short_text, truncation=True, max_length=512)[0]
+                    
+                    # Check for 'toxic' label (or fallback to 'LABEL_1' just in case)
+                    is_toxic = str(res['label']).lower() == 'toxic' or str(res['label']) == 'label_1'
+                    results_flags.append(is_toxic)
+                    
+                except Exception as e:
+                    print(f"⚠️ Skipped comment due to spam analyzer error: {e}")
+                    results_flags.append(False) # Default to false if model fails on a weird character
+                    
+            return results_flags
+
+    def generate_summary(self, comments):
+        """Combines comments and generates a summary safely."""
+        if not comments: return "No comments to summarize."
+        
+        try:
+            # Filter out empty comments
+            valid_comments = [str(c) for c in comments if c and str(c).strip()]
+            combined_text = " ".join(valid_comments)
+            
+            # STRICT LIMIT: Grab only the first ~800 words to stay safely under BART's 1024 token limit
+            combined_text = " ".join(combined_text.split()[:800])
+            
+            if not combined_text:
+                return "Not enough valid text to generate a summary."
+            
+            print("Generating AI Summary...")
+            summary = self.summarizer(combined_text, max_length=130, min_length=30, do_sample=False)
+            return summary[0]['summary_text']
+            
+        except Exception as e:
+            print(f"❌ Summary generation failed: {e}")
+            return "Summary generation failed due to a model error."
     
 
 
